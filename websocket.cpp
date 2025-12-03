@@ -66,15 +66,30 @@ int Init()
 void handle_client(SOCKET client)
 {
     char buf[4096];
-    int n = recv(client, buf, sizeof(buf), 0);
-    if (n > 0)
+    std::cout << "[HANDLE_CLIENT] Connection established\n";
+    
+    while (true)
     {
-        // For now just echo back
-        std::cout << "[HANDLE_CLIENT] Connection Recieved\n";
-        send(client, buf, n, 0);
+        int n = recv(client, buf, sizeof(buf), 0);
+        if (n > 0)
+        {
+            std::cout << "[HANDLE_CLIENT] Received " << n << " bytes\n";
+            // Echo back
+            send(client, buf, n, 0);
+        }
+        else if (n == 0)
+        {
+            std::cout << "[HANDLE_CLIENT] Client disconnected gracefully\n";
+            break;
+        }
+        else
+        {
+            std::cerr << "[HANDLE_CLIENT] recv error: " << WSAGetLastError() << "\n";
+            break;
+        }
     }
 
-    shutdown(client, SD_SEND); // graceful close
+    shutdown(client, SD_SEND);
     closesocket(client);
 }
 
