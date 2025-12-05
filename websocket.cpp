@@ -5,6 +5,8 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <thread>
+#include <vector>
+#include "Types.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 #define PORT "5173"
@@ -21,6 +23,33 @@ typedef struct file_list_type
     std::string file_remote_ip;
     unsigned int file_port;
 } FILEITEM;
+std::unordered_set<std::string> Proto::allowed_protocols;
+std::unordered_map<std::string, std::function<void(SOCKET, std::vector<std::string>)>> Proto::handlers;
+
+// TODO: implement the handlers
+void Proto::init_handlers()
+{
+    allowed_protocols = {GET,
+                         SEND,
+                         EXEC};
+    handlers[GET] = [](SOCKET, std::vector<std::string>)
+    {
+        std::cout << "This is the GET handler\n";
+    };
+    handlers[SEND] = [](SOCKET, std::vector<std::string>)
+    {
+        std::cout << "This is the SEND handler\n";
+    };
+    handlers[EXEC] = [](SOCKET, std::vector<std::string>)
+    {
+        std::cout << "This is the EXEC handler\n";
+    };
+}
+
+bool Proto::is_valid_protocol(const std::string &proto)
+{
+    return allowed_protocols.count(proto);
+}
 
 int Init()
 {
@@ -63,17 +92,55 @@ int Init()
     return 0;
 }
 
+std::vector<std::string> split_request(char buf[], int size)
+{
+    std::vector<std::string> tokens;
+    std::string token;
+    for (int i = 0; i < size; i++)
+    {
+        if (buf[i] == '\n' || buf[i] == '\r')
+        {
+            if (!token.empty())
+            {
+                tokens.push_back(token);
+                token.clear();
+            }
+            break; // Line-based protocol
+        }
+        else if (buf[i] == ' ')
+        {
+            if (!token.empty())
+            {
+                tokens.push_back(token);
+                token.clear();
+            }
+        }
+        else
+        {
+            token += buf[i];
+        }
+    }
+    if (!token.empty())
+        tokens.push_back(token);
+    return tokens;
+}
+
 void handle_client(SOCKET client)
 {
     char buf[4096];
     std::cout << "[HANDLE_CLIENT] Connection established\n";
-    
+
     while (true)
     {
         int n = recv(client, buf, sizeof(buf), 0);
         if (n > 0)
         {
             std::cout << "[HANDLE_CLIENT] Received " << n << " bytes\n";
+            std::vector<std::string> request = split_request(buf, n);
+            for (auto i : request)
+            {
+                std::cout << i << "\n";
+            }
             // Echo back
             send(client, buf, n, 0);
         }
